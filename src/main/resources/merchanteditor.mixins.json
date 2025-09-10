@@ -1,0 +1,14 @@
+{
+  "required": true,
+  "package": "ftt.merchanteditor.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "NoRestockMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  },
+  "overwrites": {
+    "requireAnnotations": true
+  }
+}
