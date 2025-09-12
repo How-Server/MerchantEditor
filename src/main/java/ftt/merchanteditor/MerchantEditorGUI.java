@@ -7,8 +7,6 @@ import eu.pb4.sgui.api.gui.SimpleGui;
 import ftt.merchanteditor.Helper.TradeHelper;
 import ftt.merchanteditor.Helper.VillagerHelper;
 import net.minecraft.entity.passive.MerchantEntity;
-import net.minecraft.inventory.Inventory;
-import net.minecraft.inventory.InventoryChangedListener;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
@@ -121,7 +119,7 @@ public class MerchantEditorGUI extends SimpleGui {
             // show trade max use
             int maxUse = inv.getMaxUse(invSlot);
             Item maxUseItem = Items.YELLOW_STAINED_GLASS_PANE;
-            Text maxUseName = Text.literal("次數：" + Integer.toString(maxUse)).styled(s -> s.withColor(Formatting.YELLOW));
+            Text maxUseName = Text.literal("次數：" + maxUse).styled(s -> s.withColor(Formatting.YELLOW));
             if (isEmpty) {
                 maxUseItem = Items.BLACK_STAINED_GLASS_PANE;
                 maxUseName = Text.literal("無");
@@ -170,7 +168,7 @@ public class MerchantEditorGUI extends SimpleGui {
     private void saveChanges() {
         int invalid = inv.findFirstInvalidTrade();
         if (invalid >= 0) {
-            setTitle(Text.literal("第 " + Integer.toString(invalid + 1) + " 個交易有問題").styled(style -> style.withColor(Formatting.DARK_RED)));
+            setTitle(Text.literal("第 " + (invalid + 1) + " 個交易有問題").styled(style -> style.withColor(Formatting.DARK_RED)));
             scrollToSlot(invalid);
             return;
         }
@@ -228,12 +226,7 @@ public class MerchantEditorGUI extends SimpleGui {
 
 
     private void registerListener() {
-        inv.addListener(new InventoryChangedListener() {
-            @Override
-            public void onInventoryChanged(Inventory sender) {
-                updateMenu();
-            }
-        });
+        inv.addListener(sender -> updateMenu());
     }
 
     @Override
