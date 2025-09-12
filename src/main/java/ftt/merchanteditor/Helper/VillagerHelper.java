@@ -143,7 +143,7 @@ public class VillagerHelper {
         if (!(merchant instanceof VillagerEntity villager)) {
             return new GuiElementBuilder().setItem(Items.BLACK_STAINED_GLASS_PANE).hideTooltip();
         }
-        int level = villager.getVillagerData().level();
+        int level = Math.min(5, villager.getVillagerData().level());
         List<Item> items = Arrays.asList(Items.COAL, Items.IRON_INGOT, Items.GOLD_INGOT, Items.EMERALD, Items.DIAMOND);
         List<String> names = Arrays.asList("Novice", "Apprentice", "Journeyman", "Expert", "Master");
 
