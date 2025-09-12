@@ -4,7 +4,6 @@ import eu.pb4.sgui.api.elements.GuiElementBuilder;
 import ftt.merchanteditor.MerchantInfo;
 import net.minecraft.entity.passive.MerchantEntity;
 import net.minecraft.entity.passive.VillagerEntity;
-import net.minecraft.item.Item;
 import net.minecraft.item.Items;
 import net.minecraft.registry.RegistryKey;
 import net.minecraft.registry.entry.RegistryEntry;
@@ -144,17 +143,16 @@ public class VillagerHelper {
             return new GuiElementBuilder().setItem(Items.BLACK_STAINED_GLASS_PANE).hideTooltip();
         }
         int level = Math.min(5, villager.getVillagerData().level());
-        List<Item> items = Arrays.asList(Items.COAL, Items.IRON_INGOT, Items.GOLD_INGOT, Items.EMERALD, Items.DIAMOND);
-        List<String> names = Arrays.asList("Novice", "Apprentice", "Journeyman", "Expert", "Master");
 
         List<Text> lore = new ArrayList<>();
-        lore.add(Text.literal("--------------------").styled(style -> style.withColor(Formatting.DARK_GRAY)));
-        for (int i = 0; i < names.size(); i++) {
-            boolean selected = i == (level - 1);
-            Text line = selected ? Text.literal("> " + names.get(i)).styled(style -> style.withColor(Formatting.GREEN).withBold(true)) : Text.literal(names.get(i)).styled(style -> style.withColor(Formatting.WHITE));
+        lore.add(Text.literal("----------").styled(style -> style.withColor(Formatting.DARK_GRAY)));
+        for (int i = 1; i <= 5; i++) {
+            boolean selected = i == level;
+            Text base = Text.translatable("merchant.level." + i);
+            Text line = selected ? Text.literal("> ").append(base).styled(style -> style.withColor(Formatting.GREEN).withBold(true)) : base.copy().styled(style -> style.withColor(Formatting.WHITE));
             lore.add(line);
         }
 
-        return new GuiElementBuilder().setItem(items.get(level - 1)).setItemName(Text.literal("等級")).setCount(level).setMaxCount(level).setLore(lore).hideDefaultTooltip();
+        return new GuiElementBuilder().setItem(Items.EMERALD).setItemName(Text.literal("等級")).setCount(level).setMaxCount(level).setLore(lore).hideDefaultTooltip();
     }
 }
