@@ -7,12 +7,13 @@ import eu.pb4.sgui.api.gui.SimpleGui;
 import ftt.merchanteditor.Helper.TradeHelper;
 import ftt.merchanteditor.Helper.VillagerHelper;
 import net.minecraft.entity.passive.MerchantEntity;
-import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 import net.minecraft.screen.ScreenHandlerType;
 import net.minecraft.screen.slot.SlotActionType;
 import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.sound.SoundCategory;
+import net.minecraft.sound.SoundEvents;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
 import net.minecraft.util.math.Vec3d;
@@ -20,19 +21,23 @@ import net.minecraft.util.math.Vec3d;
 public class MerchantEditorGUI extends SimpleGui {
     TradeInventory inv;
     int pageOffset = 0;
+    final long interactCD = 2;
+    long lastInteractTick = 0;
+    final int itemPerPage = 6;
 
     // merchant data
     MerchantEntity merchant;
     Vec3d villagerOriginPos;
 
-    // buttons related to gui
-    final int scrollPageIndex = 45;
-    final int renameIndex = 46;
-    final int changeTypeIndex = 47;
-    final int changeProfessionIndex = 48;
-    final int changeLevelIndex = 49;
-    final int cancelChangeIndex = 51;
-    final int saveChangeIndex = 53;
+    // buttons related to gui ( 9 * row + col )
+    final int scrollPageUpIndex = 4;
+    final int scrollPageDownIndex = 9 * 5 + 4;
+    final int renameIndex = 9 + 6;
+    final int changeTypeIndex = 9 * 3 + 6;
+    final int changeProfessionIndex = 9 * 3 + 7;
+    final int changeLevelIndex = 9 * 3 + 8;
+    final int cancelChangeIndex = 9 * 5 + 6;
+    final int saveChangeIndex = 9 * 5 + 8;
 
     // helper class
     public MerchantEditorGUI(ServerPlayerEntity player, MerchantEntity merchant) {
@@ -52,19 +57,30 @@ public class MerchantEditorGUI extends SimpleGui {
 
     @Override
     public boolean onClick(int index, ClickType type, SlotActionType action, GuiElementInterface element) {
-        if (type.isMiddle || (!type.isLeft && !type.isRight)) {
+        if (type.isMiddle || (!type.isLeft && !type.isRight) || type == ClickType.MOUSE_DOUBLE_CLICK) {
             return super.onClick(index, type, action, element);
         }
+        if (player.getWorld().getTime() <= lastInteractTick + interactCD) {
+            return super.onClick(index, type, action, element);
+        }
+        lastInteractTick = player.getWorld().getTime();
 
-        boolean goNext = type.isLeft;
-        if (index == scrollPageIndex) {
-            scrollMenu(type.shift ? 9 : 1, !goNext);
+
+        boolean isLeft = type.isLeft;
+        if (getSlot(index).getItemStack().getItem() != Items.BLACK_STAINED_GLASS_PANE) {
+            player.playSoundToPlayer(SoundEvents.UI_BUTTON_CLICK.value(), SoundCategory.UI, 0.5F, isLeft ? 1F : 0.9F);
+        }
+
+        if (index == scrollPageUpIndex) {
+            scrollMenu(type.shift ? 9 : 1, true);
+        } else if (index == scrollPageDownIndex) {
+            scrollMenu(type.shift ? 9 : 1, false);
         } else if (index == changeProfessionIndex) {
-            VillagerHelper.changeProfession(merchant, goNext);
+            VillagerHelper.changeProfession(merchant, isLeft);
         } else if (index == changeTypeIndex) {
-            VillagerHelper.changeType(merchant, goNext);
+            VillagerHelper.changeType(merchant, isLeft);
         } else if (index == changeLevelIndex) {
-            VillagerHelper.changeLevel(merchant, goNext);
+            VillagerHelper.changeLevel(merchant, isLeft);
         }
 
         updateMenu();
@@ -78,7 +94,8 @@ public class MerchantEditorGUI extends SimpleGui {
             setSlot(i, new GuiElementBuilder(Items.BLACK_STAINED_GLASS_PANE).hideTooltip());
         }
 
-        setSlot(scrollPageIndex, new GuiElementBuilder(Items.CLOCK).setName(Text.literal("滾動頁面")).addLoreLine(Text.literal("滑鼠左右鍵")).addLoreLine(Text.literal("按住shift可跳一頁")));
+        setSlot(scrollPageUpIndex, new GuiElementBuilder(Items.BLUE_STAINED_GLASS_PANE).setName(Text.literal("往上滾動")).addLoreLine(Text.literal("按住shift可跳一頁")));
+        setSlot(scrollPageDownIndex, new GuiElementBuilder(Items.BLUE_STAINED_GLASS_PANE).setName(Text.literal("往下滾動")).addLoreLine(Text.literal("按住shift可跳一頁")));
         setSlot(renameIndex, new GuiElementBuilder(Items.NAME_TAG).setName(Text.literal("修改名稱")).setCallback(this::callRenameGUI));
         setSlot(changeTypeIndex, new GuiElementBuilder(Items.CARTOGRAPHY_TABLE).setName(Text.literal("生態")));
         setSlot(changeProfessionIndex, new GuiElementBuilder(Items.IRON_AXE).setName(Text.literal("工作")));
@@ -91,12 +108,8 @@ public class MerchantEditorGUI extends SimpleGui {
 
 
     private void updateMenu() {
-        for (int i = 0; i < 9; i++) {
+        for (int i = 0; i < 6; i++) {
             int invSlot = pageOffset + i;
-            // Link the trade inventory to menu
-            setSlotRedirect(9 + i, inv.getSlot(invSlot * 3));
-            setSlotRedirect(18 + i, inv.getSlot(invSlot * 3 + 1));
-            setSlotRedirect(27 + i, inv.getSlot(invSlot * 3 + 2));
 
             // check if trade is valid and display it
             ItemStack stackA = inv.getStack(invSlot * 3);
@@ -105,47 +118,42 @@ public class MerchantEditorGUI extends SimpleGui {
 
             boolean isEmpty = TradeHelper.isTradeEmpty(stackA, stackB, sell);
             boolean isValid = TradeHelper.isTradeValid(stackA, stackB, sell);
-
-            // show is trade valid
-            Item checkItem = Items.LIME_STAINED_GLASS;
-            if (!isValid) {
-                checkItem = Items.RED_STAINED_GLASS;
-            }
-            if (isEmpty) {
-                checkItem = Items.BLACK_STAINED_GLASS;
-            }
-            setSlot(i, new GuiElementBuilder(checkItem).setCount(invSlot + 1).setMaxCount(99).hideTooltip());
-
-            // show trade max use
             int maxUse = inv.getMaxUse(invSlot);
-            Item maxUseItem = Items.YELLOW_STAINED_GLASS_PANE;
-            Text maxUseName = Text.literal("次數：" + maxUse).styled(s -> s.withColor(Formatting.YELLOW));
-            if (isEmpty) {
-                maxUseItem = Items.BLACK_STAINED_GLASS_PANE;
-                maxUseName = Text.literal("無");
-                maxUse = 1;
+
+            // Information about trade
+            GuiElementBuilder checkItemElement = new GuiElementBuilder();
+            if (!isValid) {
+                checkItemElement.setItem(Items.BARRIER);
+            } else if (isEmpty) {
+                checkItemElement.setItem(Items.BLACK_STAINED_GLASS);
             } else if (maxUse == 0) {
-                maxUseName = Text.literal("停用").styled(s -> s.withColor(Formatting.RED));
-                maxUseItem = Items.RED_STAINED_GLASS_PANE;
-                maxUse = 1;
+                checkItemElement.setItem(Items.RED_STAINED_GLASS);
             } else if (maxUse == Integer.MAX_VALUE) {
-                maxUseName = Text.literal("無限制").styled(s -> s.withColor(Formatting.GREEN));
-                maxUseItem = Items.GREEN_STAINED_GLASS_PANE;
-                maxUse = 1;
+                checkItemElement.setItem(Items.LIME_STAINED_GLASS);
+            } else {
+                checkItemElement.setItem(Items.YELLOW_STAINED_GLASS);
             }
-            setSlot(36 + i, new GuiElementBuilder()
-                    .setItem(maxUseItem)
-                    .setName(maxUseName)
-                    .setCount(Math.min(maxUse, 99))
-                    .addLoreLine(Text.literal("點擊即可編輯"))
-                    .setMaxCount(99).setCallback(() -> callMaxUseGUI(invSlot)));
+            String maxUseString = maxUse == 0 ? "停用" : maxUse == Integer.MAX_VALUE ? "無限制" : Integer.toString(maxUse);
+            Formatting color = isValid ? Formatting.GREEN : Formatting.RED;
+            checkItemElement
+                    .setName(Text.literal("第 " + (invSlot + 1) + " 個交易").styled((s) -> s.withColor(color)))
+                    .setCount(invSlot + 1)
+                    .setMaxCount(99)
+                    .setCallback(() -> callMaxUseGUI(invSlot))
+                    .addLoreLine(Text.literal("數量：" + maxUseString));
+
+
+            setSlot(i * 9, checkItemElement);
+            // Link the trade inventory to menu
+            setSlotRedirect(i * 9 + 1, inv.getSlot(invSlot * 3));
+            setSlotRedirect(i * 9 + 2, inv.getSlot(invSlot * 3 + 1));
+            setSlotRedirect(i * 9 + 3, inv.getSlot(invSlot * 3 + 2));
         }
 
         // Control panel
         setSlot(changeProfessionIndex, VillagerHelper.getCurrentProfessionElement(merchant));
         setSlot(changeTypeIndex, VillagerHelper.getCurrentTypeElement(merchant));
         setSlot(changeLevelIndex, VillagerHelper.getCurrentLevelElement(merchant));
-
     }
 
 
@@ -180,14 +188,14 @@ public class MerchantEditorGUI extends SimpleGui {
         close();
     }
 
-    public void scrollMenu(int distance, boolean goBack) {
+    public void scrollMenu(int distance, boolean goUp) {
         if (distance <= 0) {
             return;
         }
         for (int i = 0; i < distance; i++) {
-            if (!goBack && !isLastPage()) {
+            if (!goUp && !isLastPage()) {
                 pageOffset++;
-            } else if (goBack && !isFirstPage()) {
+            } else if (goUp && !isFirstPage()) {
                 pageOffset--;
             }
         }
@@ -195,11 +203,12 @@ public class MerchantEditorGUI extends SimpleGui {
 
     private void scrollToSlot(int slot) {
         int left = pageOffset;
-        int right = pageOffset + 8;
+        int right = pageOffset + itemPerPage - 1;
+        int mid = itemPerPage / 2;
         if (slot > right) {
-            scrollMenu(slot - right + 4, false);
+            scrollMenu(slot - right + mid, false);
         } else if (slot < left) {
-            scrollMenu(left - slot + 4, true);
+            scrollMenu(left - slot + mid, true);
         }
     }
 
@@ -221,7 +230,7 @@ public class MerchantEditorGUI extends SimpleGui {
     }
 
     private boolean isLastPage() {
-        return ((pageOffset + 9) * 3 + 2) >= (inv.getMaxTradeSlotCount() * 3);
+        return ((pageOffset + itemPerPage) * 3 + 2) >= (inv.getMaxTradeSlotCount() * 3);
     }
 
 
