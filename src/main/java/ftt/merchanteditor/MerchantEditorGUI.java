@@ -6,17 +6,15 @@ import eu.pb4.sgui.api.elements.GuiElementInterface;
 import eu.pb4.sgui.api.gui.SimpleGui;
 import ftt.merchanteditor.Helper.TradeHelper;
 import ftt.merchanteditor.Helper.VillagerHelper;
-import net.minecraft.entity.passive.MerchantEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.screen.ScreenHandlerType;
-import net.minecraft.screen.slot.SlotActionType;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.sound.SoundCategory;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.entity.npc.villager.AbstractVillager;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.inventory.MenuType;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.network.chat.Component;
+import net.minecraft.ChatFormatting;
+import net.minecraft.world.phys.Vec3;
 
 public class MerchantEditorGUI extends SimpleGui {
     TradeInventory inv;
@@ -26,8 +24,8 @@ public class MerchantEditorGUI extends SimpleGui {
     final int itemPerPage = 6;
 
     // merchant data
-    MerchantEntity merchant;
-    Vec3d villagerOriginPos;
+    AbstractVillager merchant;
+    Vec3 villagerOriginPos;
 
     // buttons related to gui ( 9 * row + col )
     final int scrollPageUpIndex = 4;
@@ -40,14 +38,14 @@ public class MerchantEditorGUI extends SimpleGui {
     final int saveChangeIndex = 9 * 5 + 8;
 
     // helper class
-    public MerchantEditorGUI(ServerPlayerEntity player, MerchantEntity merchant) {
-        super(ScreenHandlerType.GENERIC_9X6, player, false);
+    public MerchantEditorGUI(ServerPlayer player, AbstractVillager merchant) {
+        super(MenuType.GENERIC_9x6, player, false);
         this.inv = new TradeInventory();
         this.merchant = merchant;
 
 
-        villagerOriginPos = this.merchant.getPos();
-        this.merchant.refreshPositionAfterTeleport(TradeHelper.getPreviewPos(player));
+        villagerOriginPos = this.merchant.position();
+        this.merchant.snapTo(TradeHelper.getPreviewPos(player));
 
         inv.loadOffers(this.merchant);
         TradeHelper.useMerchant(this.merchant);
@@ -56,19 +54,19 @@ public class MerchantEditorGUI extends SimpleGui {
     }
 
     @Override
-    public boolean onClick(int index, ClickType type, SlotActionType action, GuiElementInterface element) {
+    public boolean onClick(int index, ClickType type, net.minecraft.world.inventory.ClickType action, GuiElementInterface element) {
         if (type.isMiddle || (!type.isLeft && !type.isRight) || type == ClickType.MOUSE_DOUBLE_CLICK) {
             return super.onClick(index, type, action, element);
         }
-        if (player.getWorld().getTime() <= lastInteractTick + interactCD) {
+        if (player.level().getGameTime() <= lastInteractTick + interactCD) {
             return super.onClick(index, type, action, element);
         }
-        lastInteractTick = player.getWorld().getTime();
+        lastInteractTick = player.level().getGameTime();
 
 
         boolean isLeft = type.isLeft;
         if (getSlot(index).getItemStack().getItem() != Items.BLACK_STAINED_GLASS_PANE) {
-            player.playSoundToPlayer(SoundEvents.UI_BUTTON_CLICK.value(), SoundCategory.UI, 0.5F, isLeft ? 1F : 0.9F);
+            player.playSound(SoundEvents.UI_BUTTON_CLICK.value(), 0.5F, isLeft ? 1F : 0.9F);
         }
 
         if (index == scrollPageUpIndex) {
@@ -89,19 +87,19 @@ public class MerchantEditorGUI extends SimpleGui {
 
 
     private void initMenu() {
-        setTitle(Text.literal("編輯交易：" + merchant.getName().getString()));
+        setTitle(Component.literal("編輯交易：" + merchant.getName().getString()));
         for (int i = 0; i < 54; i++) {
             setSlot(i, new GuiElementBuilder(Items.BLACK_STAINED_GLASS_PANE).hideTooltip());
         }
 
-        setSlot(scrollPageUpIndex, new GuiElementBuilder(Items.BLUE_STAINED_GLASS_PANE).setName(Text.literal("往上滾動")).addLoreLine(Text.literal("按住shift可跳一頁")));
-        setSlot(scrollPageDownIndex, new GuiElementBuilder(Items.BLUE_STAINED_GLASS_PANE).setName(Text.literal("往下滾動")).addLoreLine(Text.literal("按住shift可跳一頁")));
-        setSlot(renameIndex, new GuiElementBuilder(Items.NAME_TAG).setName(Text.literal("修改名稱")).setCallback(this::callRenameGUI));
-        setSlot(changeTypeIndex, new GuiElementBuilder(Items.CARTOGRAPHY_TABLE).setName(Text.literal("生態")));
-        setSlot(changeProfessionIndex, new GuiElementBuilder(Items.IRON_AXE).setName(Text.literal("工作")));
-        setSlot(changeLevelIndex, new GuiElementBuilder(Items.EXPERIENCE_BOTTLE).setName(Text.literal("階級")));
-        setSlot(cancelChangeIndex, new GuiElementBuilder(Items.RED_WOOL).setName(Text.literal("取消")).setCallback(this::cancelChanges));
-        setSlot(saveChangeIndex, new GuiElementBuilder(Items.LIME_WOOL).setName(Text.literal("儲存")).setCallback(this::saveChanges));
+        setSlot(scrollPageUpIndex, new GuiElementBuilder(Items.BLUE_STAINED_GLASS_PANE).setName(Component.literal("往上滾動")).addLoreLine(Component.literal("按住shift可跳一頁")));
+        setSlot(scrollPageDownIndex, new GuiElementBuilder(Items.BLUE_STAINED_GLASS_PANE).setName(Component.literal("往下滾動")).addLoreLine(Component.literal("按住shift可跳一頁")));
+        setSlot(renameIndex, new GuiElementBuilder(Items.NAME_TAG).setName(Component.literal("修改名稱")).setCallback(this::callRenameGUI));
+        setSlot(changeTypeIndex, new GuiElementBuilder(Items.CARTOGRAPHY_TABLE).setName(Component.literal("生態")));
+        setSlot(changeProfessionIndex, new GuiElementBuilder(Items.IRON_AXE).setName(Component.literal("工作")));
+        setSlot(changeLevelIndex, new GuiElementBuilder(Items.EXPERIENCE_BOTTLE).setName(Component.literal("階級")));
+        setSlot(cancelChangeIndex, new GuiElementBuilder(Items.RED_WOOL).setName(Component.literal("取消")).setCallback(this::cancelChanges));
+        setSlot(saveChangeIndex, new GuiElementBuilder(Items.LIME_WOOL).setName(Component.literal("儲存")).setCallback(this::saveChanges));
 
         updateMenu();
     }
@@ -134,13 +132,13 @@ public class MerchantEditorGUI extends SimpleGui {
                 checkItemElement.setItem(Items.YELLOW_STAINED_GLASS);
             }
             String maxUseString = maxUse == 0 ? "停用" : maxUse == Integer.MAX_VALUE ? "無限制" : Integer.toString(maxUse);
-            Formatting color = isValid ? Formatting.GREEN : Formatting.RED;
+            ChatFormatting color = isValid ? ChatFormatting.GREEN : ChatFormatting.RED;
             checkItemElement
-                    .setName(Text.literal("第 " + (invSlot + 1) + " 個交易").styled((s) -> s.withColor(color)))
+                    .setName(Component.literal("第 " + (invSlot + 1) + " 個交易").withStyle((s) -> s.withColor(color)))
                     .setCount(invSlot + 1)
                     .setMaxCount(99)
                     .setCallback(() -> callMaxUseGUI(invSlot))
-                    .addLoreLine(Text.literal("數量：" + maxUseString));
+                    .addLoreLine(Component.literal("數量：" + maxUseString));
 
 
             setSlot(i * 9, checkItemElement);
@@ -167,24 +165,24 @@ public class MerchantEditorGUI extends SimpleGui {
     }
 
     private void cancelChanges() {
-        player.sendMessage(Text.literal("取消修改").styled(style -> style.withColor(Formatting.RED)));
+        player.sendSystemMessage(Component.literal("取消修改").withStyle(style -> style.withColor(ChatFormatting.RED)));
         TradeHelper.unuseMerchant(merchant);
-        merchant.refreshPositionAfterTeleport(villagerOriginPos);
+        merchant.snapTo(villagerOriginPos);
         close();
     }
 
     private void saveChanges() {
         int invalid = inv.findFirstInvalidTrade();
         if (invalid >= 0) {
-            setTitle(Text.literal("第 " + (invalid + 1) + " 個交易有問題").styled(style -> style.withColor(Formatting.DARK_RED)));
+            setTitle(Component.literal("第 " + (invalid + 1) + " 個交易有問題").withStyle(style -> style.withColor(ChatFormatting.DARK_RED)));
             scrollToSlot(invalid);
             return;
         }
 
         saveToMerchant();
-        player.sendMessage(Text.literal("修改成功").styled(style -> style.withColor(Formatting.GREEN)));
+        player.sendSystemMessage(Component.literal("修改成功").withStyle(style -> style.withColor(ChatFormatting.GREEN)));
         TradeHelper.unuseMerchant(merchant);
-        merchant.refreshPositionAfterTeleport(villagerOriginPos);
+        merchant.snapTo(villagerOriginPos);
         close();
     }
 

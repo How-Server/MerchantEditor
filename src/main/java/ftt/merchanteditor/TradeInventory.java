@@ -1,29 +1,29 @@
 package ftt.merchanteditor;
 
 import ftt.merchanteditor.Helper.TradeHelper;
-import net.minecraft.entity.passive.MerchantEntity;
-import net.minecraft.inventory.InventoryChangedListener;
-import net.minecraft.inventory.SimpleInventory;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.screen.slot.Slot;
-import net.minecraft.village.TradeOffer;
-import net.minecraft.village.TradeOfferList;
-import net.minecraft.village.TradedItem;
+import net.minecraft.world.entity.npc.villager.AbstractVillager;
+import net.minecraft.world.ContainerListener;
+import net.minecraft.world.SimpleContainer;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.item.trading.MerchantOffer;
+import net.minecraft.world.item.trading.MerchantOffers;
+import net.minecraft.world.item.trading.ItemCost;
 
 import java.util.Arrays;
 import java.util.Optional;
 
 public class TradeInventory {
     final int maxTradeSlotCount = 99;  // TODO: dynamic size?
-    SimpleInventory inv = new SimpleInventory(maxTradeSlotCount * 3);
+    SimpleContainer inv = new SimpleContainer(maxTradeSlotCount * 3);
     final int[] offerMaxUses = new int[maxTradeSlotCount];
 
     public TradeInventory() {
         Arrays.fill(offerMaxUses, Integer.MAX_VALUE);
     }
 
-    public void addListener(InventoryChangedListener listener) {
+    public void addListener(ContainerListener listener) {
         inv.addListener(listener);
     }
 
@@ -36,14 +36,14 @@ public class TradeInventory {
     }
 
     public void setOffer(int slot, ItemStack buyA, ItemStack buyB, ItemStack sell, int maxUses) {
-        inv.setStack(slot * 3, buyA);
-        inv.setStack(slot * 3 + 1, buyB);
-        inv.setStack(slot * 3 + 2, sell);
+        inv.setItem(slot * 3, buyA);
+        inv.setItem(slot * 3 + 1, buyB);
+        inv.setItem(slot * 3 + 2, sell);
         offerMaxUses[slot] = maxUses;
     }
 
     public ItemStack getStack(int slot) {
-        return inv.getStack(slot);
+        return inv.getItem(slot);
     }
 
     public Slot getSlot(int index) {
@@ -54,16 +54,16 @@ public class TradeInventory {
         return maxTradeSlotCount;
     }
 
-    public void loadOffers(MerchantEntity merchant) {
-        TradeOfferList offers = merchant.getOffers();
+    public void loadOffers(AbstractVillager merchant) {
+        MerchantOffers offers = merchant.getOffers();
         int index = 0;
-        for (TradeOffer offer : offers) {
+        for (MerchantOffer offer : offers) {
             if (index + 1 >= maxTradeSlotCount) {
                 break;
             }
-            ItemStack buyA = offer.getFirstBuyItem().itemStack();
-            ItemStack buyB = offer.getSecondBuyItem().isPresent() ? offer.getSecondBuyItem().get().itemStack() : new ItemStack(Items.AIR);
-            ItemStack sell = offer.getSellItem();
+            ItemStack buyA = offer.getItemCostA().itemStack();
+            ItemStack buyB = offer.getItemCostB().isPresent() ? offer.getItemCostB().get().itemStack() : new ItemStack(Items.AIR);
+            ItemStack sell = offer.getResult();
 
             setOffer(index, buyA, buyB, sell, offer.getMaxUses());
 
@@ -71,22 +71,22 @@ public class TradeInventory {
         }
     }
 
-    public TradeOfferList getOffers() {
-        TradeOfferList offers = new TradeOfferList();
+    public MerchantOffers getOffers() {
+        MerchantOffers offers = new MerchantOffers();
 
         for (int i = 0; i < maxTradeSlotCount; i++) {
-            ItemStack stackA = inv.getStack(i * 3);
-            ItemStack stackB = inv.getStack(i * 3 + 1);
-            ItemStack sell = inv.getStack((i * 3) + 2);
+            ItemStack stackA = inv.getItem(i * 3);
+            ItemStack stackB = inv.getItem(i * 3 + 1);
+            ItemStack sell = inv.getItem((i * 3) + 2);
 
             if (TradeHelper.isTradeEmpty(stackA, stackB, sell) || !TradeHelper.isTradeValid(stackA, stackB, sell)) {
                 continue;
             }
-            TradedItem buyA = TradeHelper.getFixedTradedItem(stackA);
-            TradedItem buyB = TradeHelper.getFixedTradedItem(stackB);
-            Optional<TradedItem> maybeTradeB = Optional.of(buyB).filter(t -> t.itemStack().getItem() != Items.AIR);
+            ItemCost buyA = TradeHelper.getFixedTradedItem(stackA);
+            ItemCost buyB = TradeHelper.getFixedTradedItem(stackB);
+            Optional<ItemCost> maybeTradeB = Optional.of(buyB).filter(t -> t.itemStack().getItem() != Items.AIR);
 
-            offers.add(new TradeOffer(buyA, maybeTradeB, sell, offerMaxUses[i], 0, 0));
+            offers.add(new MerchantOffer(buyA, maybeTradeB, sell, offerMaxUses[i], 0, 0));
         }
 
         return offers;

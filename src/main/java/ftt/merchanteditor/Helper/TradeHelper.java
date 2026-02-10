@@ -1,67 +1,67 @@
 package ftt.merchanteditor.Helper;
 
-import net.minecraft.component.Component;
-import net.minecraft.component.ComponentChanges;
-import net.minecraft.component.ComponentType;
-import net.minecraft.entity.effect.StatusEffectInstance;
-import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.entity.passive.MerchantEntity;
-import net.minecraft.entity.passive.VillagerEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.village.TradedItem;
+import net.minecraft.core.component.TypedDataComponent;
+import net.minecraft.core.component.DataComponentPatch;
+import net.minecraft.core.component.DataComponentType;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.npc.villager.AbstractVillager;
+import net.minecraft.world.entity.npc.villager.Villager;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.item.trading.ItemCost;
 
 import java.util.Map;
 import java.util.Optional;
 
 public class TradeHelper {
 
-    public static Vec3d getPreviewPos(ServerPlayerEntity player) {
-        Vec3d playerPos = player.getPos();
+    public static Vec3 getPreviewPos(ServerPlayer player) {
+        Vec3 playerPos = player.position();
 
         // Move villager to left of your screen
-        Vec3d forward = player.getRotationVec(1.0F);
-        Vec3d up = new Vec3d(0, 0.5, 0);
-        Vec3d left = up.crossProduct(forward).normalize();
-        Vec3d offset = left.multiply(1.5).add(up.multiply(0.5)).add(forward.multiply(1.5));
+        Vec3 forward = player.getViewVector(1.0F);
+        Vec3 up = new Vec3(0, 0.5, 0);
+        Vec3 left = up.cross(forward).normalize();
+        Vec3 offset = left.scale(1.5).add(up.scale(0.5)).add(forward.scale(1.5));
         return playerPos.add(offset);
     }
 
-    public static void useMerchant(MerchantEntity merchant) {
+    public static void useMerchant(AbstractVillager merchant) {
         markMerchantEdited(merchant);
 
-        merchant.addCommandTag("editing");
-        merchant.addStatusEffect(new StatusEffectInstance(StatusEffects.GLOWING, StatusEffectInstance.INFINITE, 0, false, false));
+        merchant.addTag("editing");
+        merchant.addEffect(new MobEffectInstance(MobEffects.GLOWING, MobEffectInstance.INFINITE_DURATION, 0, false, false));
 
     }
 
-    public static void markMerchantEdited(MerchantEntity merchant) {
-        merchant.addCommandTag("official"); // will stay here so we know it's edited by plugin
-        merchant.setAiDisabled(true);
+    public static void markMerchantEdited(AbstractVillager merchant) {
+        merchant.addTag("official"); // will stay here so we know it's edited by plugin
+        merchant.setNoAi(true);
         merchant.setInvulnerable(true);
         merchant.setSilent(true);
-        if (merchant instanceof VillagerEntity v) {
-            v.getGossip().clear();
+        if (merchant instanceof Villager v) {
+            v.getGossips().clear();
         }
     }
 
-    public static void unuseMerchant(MerchantEntity merchant) {
-        merchant.removeCommandTag("editing");
-        merchant.removeStatusEffect(StatusEffects.GLOWING);
+    public static void unuseMerchant(AbstractVillager merchant) {
+        merchant.removeTag("editing");
+        merchant.removeEffect(MobEffects.GLOWING);
     }
 
     // This should be a temperate fix to prevent items have their base components stored.
-    public static TradedItem getFixedTradedItem(ItemStack sourceItem) {
-        return new TradedItem(sourceItem.getItem(), sourceItem.getCount()).withComponents((builder -> {
-            ComponentChanges changes = sourceItem.getComponentChanges();
-            for (Map.Entry<ComponentType<?>, Optional<?>> item : changes.entrySet()) {
+    public static ItemCost getFixedTradedItem(ItemStack sourceItem) {
+        return new ItemCost(sourceItem.getItem(), sourceItem.getCount()).withComponents((builder -> {
+            DataComponentPatch changes = sourceItem.getComponentsPatch();
+            for (Map.Entry<DataComponentType<?>, Optional<?>> item : changes.entrySet()) {
                 if (item.getValue().isEmpty()) {
                     continue;
                 }
-                Component<?> component = Component.of(item.getKey(), item.getValue().get());
-                builder.add(component);
+                TypedDataComponent<?> component = TypedDataComponent.createUnchecked(item.getKey(), item.getValue().get());
+                builder.expect(component);
             }
             return builder;
         }));
